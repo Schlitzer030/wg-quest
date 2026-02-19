@@ -1,0 +1,152 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta http-equiv="Content-Style-Type" content="text/css">
+  <title></title>
+  <meta name="Generator" content="Cocoa HTML Writer">
+  <meta name="CocoaVersion" content="2299.6">
+  <style type="text/css">
+    p.p1 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica}
+    p.p2 {margin: 0.0px 0.0px 0.0px 0.0px; font: 12.0px Helvetica; min-height: 14.0px}
+    p.p3 {margin: 0.0px 0.0px 0.0px 0.0px; font: 13.0px 'Helvetica Neue'}
+    p.p4 {margin: 0.0px 0.0px 0.0px 0.0px; font: 13.0px 'Helvetica Neue'; min-height: 15.0px}
+  </style>
+</head>
+<body>
+<p class="p1">&lt;!DOCTYPE html&gt;</p>
+<p class="p1">&lt;html lang="de"&gt;</p>
+<p class="p1">&lt;head&gt;</p>
+<p class="p1">&lt;meta charset="UTF-8"&gt;</p>
+<p class="p1">&lt;title&gt;WG Quest Board 🔥&lt;/title&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"&gt;&lt;/script&gt;</p>
+<p class="p1">&lt;script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"&gt;&lt;/script&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;style&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>body {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>font-family: system-ui, sans-serif;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>background: linear-gradient(135deg, #fdfbfb, #ebedee);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>padding: 20px;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>h1 { text-align: center; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.scores {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>display: flex;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>justify-content: space-around;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>margin-bottom: 20px;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>font-size: 16px;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.task {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>background: white;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>padding: 15px;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>margin-bottom: 12px;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>border-radius: 14px;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>box-shadow: 0 4px 10px rgba(0,0,0,0.08);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>display: flex;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>justify-content: space-between;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>button {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>border: none;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>border-radius: 8px;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>padding: 6px 10px;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>cursor: pointer;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>color: white;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>}</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.maria { background: #e91e63; }</p>
+<p class="p1"><span class="Apple-converted-space">  </span>.valentin { background: #3f51b5; }</p>
+<p class="p1">&lt;/style&gt;</p>
+<p class="p1">&lt;/head&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;body&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;h1&gt;🏠 WG Quest Board&lt;/h1&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div class="scores"&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div&gt;👩 Maria ⭐ &lt;span id="mariaScore"&gt;0&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div&gt;🤝 WG ⭐ &lt;span id="wgScore"&gt;0&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>&lt;div&gt;👨 Valentin ⭐ &lt;span id="valentinScore"&gt;0&lt;/span&gt;&lt;/div&gt;</p>
+<p class="p1">&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;div id="tasks"&gt;&lt;/div&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;script&gt;</p>
+<p class="p1">/* 🔥 FIREBASE CONFIG – HIER DEINE DATEN EINSETZEN */</p>
+<p class="p3">// Import the functions you need from the SDKs you need</p>
+<p class="p3">import { initializeApp } from "firebase/app";</p>
+<p class="p3">// TODO: Add SDKs for Firebase products that you want to use</p>
+<p class="p3">// https://firebase.google.com/docs/web/setup#available-libraries</p>
+<p class="p4"><br></p>
+<p class="p3">// Your web app's Firebase configuration</p>
+<p class="p3">const firebaseConfig = {</p>
+<p class="p3"><span class="Apple-converted-space">  </span>apiKey: "AIzaSyCRfZuJ-DQpmB-TEa7h2S_PHhal6JBy4KI",</p>
+<p class="p3"><span class="Apple-converted-space">  </span>authDomain: "wg-quest.firebaseapp.com",</p>
+<p class="p3"><span class="Apple-converted-space">  </span>projectId: "wg-quest",</p>
+<p class="p3"><span class="Apple-converted-space">  </span>storageBucket: "wg-quest.firebasestorage.app",</p>
+<p class="p3"><span class="Apple-converted-space">  </span>messagingSenderId: "171906625585",</p>
+<p class="p3"><span class="Apple-converted-space">  </span>appId: "1:171906625585:web:d7c618e3d7b70e72a2a510"</p>
+<p class="p3">};</p>
+<p class="p4"><br></p>
+<p class="p3">// Initialize Firebase</p>
+<p class="p3">const app = initializeApp(firebaseConfig);</p>
+<p class="p2"><br></p>
+<p class="p1">firebase.initializeApp(firebaseConfig);</p>
+<p class="p1">const db = firebase.database();</p>
+<p class="p2"><br></p>
+<p class="p1">/* 👥 WG */</p>
+<p class="p1">const persons = ["Maria", "Valentin"];</p>
+<p class="p2"><br></p>
+<p class="p1">const tasks = [</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ name: "Staubsaugen", emoji: "🧹", points: 15, cooldown: 24 },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ name: "Wischen", emoji: "🪣", points: 20, cooldown: 48 },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ name: "Bad putzen", emoji: "🚿", points: 25, cooldown: 72 },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ name: "Spülmaschine", emoji: "🍽️", points: 5, cooldown: 6 },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ name: "Wäsche", emoji: "🧺", points: 10, cooldown: 12 },</p>
+<p class="p1"><span class="Apple-converted-space">  </span>{ name: "Aufräumen", emoji: "📦", points: 15, cooldown: 24 }</p>
+<p class="p1">];</p>
+<p class="p2"><br></p>
+<p class="p1">function markDone(task, person) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const now = Date.now();</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const ref = db.ref(`tasks/${task.name}/${person}`);</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>ref.once("value").then(snap =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const data = snap.val() || { last: 0, streak: 0 };</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const streak = (now - data.last &lt; 86400000) ? data.streak + 1 : 1;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const earned = task.points + streak * 2;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>ref.set({ last: now, streak });</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">    </span>db.ref(`scores/${person}`).transaction(v =&gt; (v || 0) + earned);</p>
+<p class="p1"><span class="Apple-converted-space">    </span>db.ref(`scores/WG`).transaction(v =&gt; (v || 0) + earned);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">function render(snapshot) {</p>
+<p class="p1"><span class="Apple-converted-space">  </span>const data = snapshot.val() || {};</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById("mariaScore").innerText = data.scores?.Maria || 0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById("valentinScore").innerText = data.scores?.Valentin || 0;</p>
+<p class="p1"><span class="Apple-converted-space">  </span>document.getElementById("wgScore").innerText = data.scores?.WG || 0;</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>const container = document.getElementById("tasks");</p>
+<p class="p1"><span class="Apple-converted-space">  </span>container.innerHTML = "";</p>
+<p class="p2"><br></p>
+<p class="p1"><span class="Apple-converted-space">  </span>tasks.forEach(t =&gt; {</p>
+<p class="p1"><span class="Apple-converted-space">    </span>const div = document.createElement("div");</p>
+<p class="p1"><span class="Apple-converted-space">    </span>div.className = "task";</p>
+<p class="p1"><span class="Apple-converted-space">    </span>div.innerHTML = `</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;&lt;strong&gt;${t.emoji} ${t.name}&lt;/strong&gt;&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button class="maria" onclick='markDone(${JSON.stringify(t)},"Maria")'&gt;Maria ✔&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">        </span>&lt;button class="valentin" onclick='markDone(${JSON.stringify(t)},"Valentin")'&gt;Valentin ✔&lt;/button&gt;</p>
+<p class="p1"><span class="Apple-converted-space">      </span>&lt;/div&gt;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>`;</p>
+<p class="p1"><span class="Apple-converted-space">    </span>container.appendChild(div);</p>
+<p class="p1"><span class="Apple-converted-space">  </span>});</p>
+<p class="p1">}</p>
+<p class="p2"><br></p>
+<p class="p1">db.ref("/").on("value", render);</p>
+<p class="p1">&lt;/script&gt;</p>
+<p class="p2"><br></p>
+<p class="p1">&lt;/body&gt;</p>
+<p class="p1">&lt;/html&gt;</p>
+</body>
+</html>
