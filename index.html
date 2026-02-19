@@ -1,239 +1,228 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>WG Quest Board</title>
-    
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WG Quest Board 🏠</title>
 
-    <style>
-        /* Modernes, iOS-freundliches Design */
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: linear-gradient(135deg, #fdfbfb, #ebedee);
-            margin: 0;
-            padding: 15px;
-            padding-bottom: env(safe-area-inset-bottom, 20px);
-            color: #333;
-        }
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-        h1 {
-            text-align: center;
-            font-size: 24px;
-            margin-top: 10px;
-            margin-bottom: 20px;
-        }
+<style>
+body {
+  font-family: system-ui, sans-serif;
+  background: #f2f2f2;
+  margin:0;
+  padding:0;
+}
+h1 { text-align:center; margin:10px 0; }
 
-        /* Tab Navigation (Aufgaben / Statistiken) */
-        .tabs {
-            display: flex;
-            background: #e3e3e8;
-            border-radius: 9px;
-            padding: 3px;
-            margin-bottom: 20px;
-        }
+.tabs {
+  display:flex;
+  justify-content:space-around;
+  margin:10px 0;
+}
 
-        .tabs button {
-            flex: 1;
-            background: transparent;
-            border: none;
-            padding: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            color: #000;
-            border-radius: 7px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
+.tab {
+  flex:1;
+  padding:10px;
+  text-align:center;
+  background:#ddd;
+  cursor:pointer;
+  font-weight:bold;
+}
 
-        .tabs button.active {
-            background: #fff;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
+.tab.active {
+  background:#bbb;
+}
 
-        /* Übersicht der Punkte */
-        .scores {
-            display: flex;
-            justify-content: space-between;
-            background: white;
-            padding: 15px;
-            border-radius: 16px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-            margin-bottom: 20px;
-            font-weight: bold;
-            font-size: 15px;
-        }
+#content {
+  padding:10px;
+}
 
-        /* Styling der einzelnen Aufgaben */
-        .task, .stat-item {
-            background: white;
-            padding: 16px;
-            margin-bottom: 12px;
-            border-radius: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        }
+.task {
+  background:white;
+  padding:12px;
+  margin-bottom:10px;
+  border-radius:12px;
+  box-shadow:0 2px 6px rgba(0,0,0,0.1);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
 
-        .task-info { flex-grow: 1; }
+.task .meta {
+  font-size:12px;
+  margin-top:4px;
+}
 
-        .meta {
-            font-size: 12px;
-            opacity: 0.6;
-            margin-top: 4px;
-        }
+.status {
+  display:inline-block;
+  padding:2px 6px;
+  border-radius:6px;
+  font-size:11px;
+  color:white;
+  margin-top:2px;
+}
 
-        /* Anzeige, wer die Aufgabe zuletzt gemacht hat */
-        .last-done-badge {
-            display: inline-block;
-            background: #f0f0f5;
-            padding: 3px 8px;
-            border-radius: 12px;
-            font-size: 11px;
-            margin-top: 6px;
-            font-weight: 600;
-        }
+button {
+  border:none;
+  border-radius:8px;
+  padding:6px 10px;
+  margin-top:4px;
+  width:100%;
+  font-size:13px;
+  color:white;
+}
 
-        /* Buttons für Maria und Valentin */
-        .buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
+.maria { background:#e91e63; }
+.valentin { background:#3f51b5; }
 
-        .task button {
-            border: none;
-            border-radius: 10px;
-            padding: 10px 14px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            color: white;
-        }
+table {
+  width:100%;
+  border-collapse: collapse;
+}
+th,td {
+  padding:6px;
+  text-align:left;
+  border-bottom:1px solid #ccc;
+  font-size:13px;
+}
 
-        .maria { background: #ff2d55; }
-        .valentin { background: #5856d6; }
-
-        /* Farb-Indikatoren an der Seite */
-        .fresh { border-left: 6px solid #34c759; }
-        .ok { border-left: 6px solid #ff9500; }
-        .old { border-left: 6px solid #ff3b30; }
-        .cooldown { opacity: 0.5; pointer-events: none; } /* Wenn im Cooldown, kann nicht geklickt werden */
-
-        /* Button zum Zurücksetzen */
-        .reset-btn {
-            display: block;
-            width: 100%;
-            background: #8e8e93;
-            color: white;
-            margin-top: 30px;
-            padding: 14px;
-            border-radius: 12px;
-            font-size: 16px;
-            border: none;
-            cursor: pointer;
-        }
-    </style>
+.reset-btn {
+  width:100%;
+  padding:8px;
+  margin-bottom:10px;
+  background:#f44336;
+  color:white;
+  border:none;
+  border-radius:8px;
+  font-weight:bold;
+  cursor:pointer;
+}
+</style>
 </head>
+
 <body>
 
-    <h1>🏆 WG Quest Board</h1>
+<h1>🏠 WG Quest</h1>
 
-    <div class="scores">
-        <div>Maria: <br><span id="scoreMaria">0</span> XP</div>
-        <div style="text-align:center;">WG:<br><span id="scoreWG">0</span> XP</div>
-        <div style="text-align:right;">Valentin:<br><span id="scoreValentin">0</span> XP</div>
-    </div>
+<div class="tabs">
+  <div class="tab active" onclick="showTab('tasksTab')">Aufgaben</div>
+  <div class="tab" onclick="showTab('statsTab')">Statistiken</div>
+</div>
 
-    <div class="tabs">
-        <button id="tabBtnTasks" class="active" onclick="switchTab('tasks')">📋 Aufgaben</button>
-        <button id="tabBtnStats" onclick="switchTab('stats')">📊 Statistiken</button>
-    </div>
-
-    <div id="viewTasks"></div>
-    <div id="viewStats" style="display: none;"></div>
-
-    <button class="reset-btn" onclick="resetStats()">⚠️ Alle Statistiken auf Null setzen</button>
+<div id="content">
+  <div id="tasksTab"></div>
+  <div id="statsTab" style="display:none"></div>
+</div>
 
 <script>
-    // ==========================================
-    // 1. FIREBASE KONFIGURATION (Deine Daten!)
-    // ==========================================
-    const firebaseConfig = {
-        apiKey: "AIzaSyCRfZuJ-DQpmB-TEa7h2S_PHhal6JBy4KI",
-        authDomain: "wg-quest.firebaseapp.com",
-        // HINWEIS: Realtime Database URL
-        databaseURL: "https://wg-quest-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "wg-quest",
-        storageBucket: "wg-quest.firebasestorage.app",
-        messagingSenderId: "171906625585",
-        appId: "1:171906625585:web:d7c618e3d7b70e72a2a510"
-    };
+/* 🔥 Firebase */
+firebase.initializeApp({
+  apiKey: "AIzaSyCRfZuJ-DQpmB-TEa7h2S_PHhal6JBy4KI",
+  authDomain: "wg-quest.firebaseapp.com",
+  databaseURL: "https://wg-quest-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "wg-quest",
+  storageBucket: "wg-quest.appspot.com",
+  messagingSenderId: "171906625585",
+  appId: "1:171906625585:web:d7c618e3d7b70e72a2a510"
+});
+const db=firebase.database();
 
-    // Firebase initialisieren
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
-    const db = firebase.database();
+/* 🧹 Aufgaben */
+const tasks = [
+  ["Wischen","🪣"],["Staub wischen","🧽"],["Bad putzen","🚿"],["Fenster putzen","🪟"],
+  ["Spülmaschine einräumen","🍽️"],["Spülmaschine ausräumen","🥄"],["Müll rausbringen","🗑️"],
+  ["Wäsche reinstecken","🧺"],["Wäsche aufhängen","👕"],["Wäsche abhängen","🧦"],
+  ["Aufräumen (Gemeinschaftsflächen)","📦"],
+  ["Glasmüll rausbringen","🍾"],["Bett beziehen","🛏️"],["Pfand wegbringen","♻️"],
+  ["Waschmaschine reinigen","🧼"],["Spülmaschine reinigen","🧽"],
+  ["Kühlschrank auswischen","❄️"],["Küchenablagen wischen","🍳"],
+  ["Einkaufen","🛒"],["Kochen","🍲"],["Blumen gießen","🌸"],["Deep Clean","🧨"]
+].map(t=>({name:t[0],emoji:t[1],points:15}));
 
-    // ==========================================
-    // 2. DATEN & LOGIK DER AUFGABEN
-    // ==========================================
-    const tasks = [
-        { name: "Staubsaugen", emoji: "🧹", points: 15, cooldown: 24 },
-        { name: "Wischen", emoji: "🪣", points: 20, cooldown: 48 },
-        { name: "Staubwischen", emoji: "🧽", points: 10, cooldown: 24 },
-        { name: "Bad putzen", emoji: "🚽", points: 25, cooldown: 72 },
-        { name: "Fenster putzen", emoji: "🪟", points: 30, cooldown: 168 },
-        { name: "Spüli einräumen", emoji: "🍽️", points: 5, cooldown: 6 },
-        { name: "Spüli ausräumen", emoji: "✨", points: 5, cooldown: 6 },
-        { name: "Müll raus", emoji: "🗑️", points: 10, cooldown: 24 },
-        { name: "Wäsche rein", emoji: "🧺", points: 10, cooldown: 12 },
-        { name: "Wäsche aufhängen", emoji: "👕", points: 10, cooldown: 12 },
-        { name: "Wäsche abhängen", emoji: "👚", points: 10, cooldown: 12 },
-        { name: "Aufräumen", emoji: "📦", points: 15, cooldown: 24 }
-    ];
+/* Helfer */
+function days(ts){ if(!ts) return 999; return Math.floor((Date.now()-ts)/(1000*60*60*24)); }
+function color(days){
+  if(days<=1) return "#4caf50";
+  if(days<=3) return "#8bc34a";
+  if(days<=6) return "#ffeb3b";
+  if(days<=9) return "#ff9800";
+  if(days<=19) return "#f44336";
+  return "#8b0000";
+}
+function fmt(ts){ if(!ts) return "noch nie"; const d=new Date(ts); return d.toLocaleDateString("de-DE")+" "+d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}); }
 
-    let dbData = { scores: {}, tasks: {} };
+/* ✔️ Aufgabe erledigt */
+function done(task,person){
+  const now=Date.now();
+  db.ref(`tasks/${task.name}/${person}`).set({ last:now });
+  db.ref(`scores/${person}`).transaction(v=>(v||0)+task.points);
+  db.ref(`scores/WG`).transaction(v=>(v||0)+task.points);
+  db.ref(`stats/${task.name}/${person}`).transaction(v=>(v||0)+1);
+}
 
-    // Firebase Listener für Echtzeit-Synchronisation
-    db.ref("/").on("value", snap => {
-        dbData = snap.val() || { scores: {}, tasks: {} };
-        updateScores();
-        renderTasks();
-        renderStats();
-    });
+/* 🔄 Render */
+db.ref("/").on("value",snap=>{
+  const d=snap.val()||{};
+  tasksTab.innerHTML="";
+  statsTab.innerHTML="";
 
-    // Hilfsfunktion: Berechnet die verstrichene Zeit
-    function timeAgo(ts) {
-        if (!ts) return "Noch nie";
-        const diff = Date.now() - ts;
-        const h = Math.floor(diff / 3600000);
-        const d = Math.floor(h / 24);
-        if (d > 0) return `vor ${d} Tag(en)`;
-        if (h > 0) return `vor ${h} Std.`;
-        return "Gerade eben";
-    }
+  /* Aufgaben Tab */
+  tasks.forEach(t=>{
+    const m=d.tasks?.[t.name]?.Maria?.last;
+    const v=d.tasks?.[t.name]?.Valentin?.last;
+    const lastBy = (!v || (m && m>v)) ? "Maria" : "Valentin";
 
-    // Funktion zum Wechseln zwischen Aufgaben und Statistiken
-    function switchTab(tab) {
-        document.getElementById("viewTasks").style.display = tab === 'tasks' ? 'block' : 'none';
-        document.getElementById("viewStats").style.display = tab === 'stats' ? 'block' : 'none';
-        document.getElementById("tabBtnTasks").className = tab === 'tasks' ? 'active' : '';
-        document.getElementById("tabBtnStats").className = tab === 'stats' ? 'active' : '';
-    }
+    const el=document.createElement("div");
+    el.className="task";
+    el.innerHTML=`
+      <div>
+        <strong>${t.emoji} ${t.name}</strong> <br>
+        Zuletzt erledigt: ${lastBy}<br>
+        👩 ${fmt(m)} <span class="status" style="background:${color(days(m))}">vor ${days(m)} Tagen</span><br>
+        👨 ${fmt(v)} <span class="status" style="background:${color(days(v))}">vor ${days(v)} Tagen</span>
+      </div>
+      <div>
+        <button class="maria" onclick='done(${JSON.stringify(t)},"Maria")'>Maria ✔</button><br><br>
+        <button class="valentin" onclick='done(${JSON.stringify(t)},"Valentin")'>Valentin ✔</button>
+      </div>`;
+    tasksTab.appendChild(el);
+  });
 
-    // Aufgabe in Firebase als erledigt markieren
-    function markDone(taskName, person) {
-        const now = Date.now();
-        const task = tasks.find(t => t.name === taskName);
-        const taskData = dbData.tasks?.[taskName] || {};
-        const lastOverall = Math.max(taskData.Maria_last || 0, taskData.Valentin_last || 0);
-        
-        if (now - lastOverall < task.cooldown * 3600000) {
-            alert(`⏳ Noch nicht! Die Aufgabe bringt erst in ${task.cooldown}
+  /* Statistik Tab */
+  statsTab.innerHTML=`
+    <button class="reset-btn" onclick="resetStats()">Statistiken zurücksetzen</button>
+    <table>
+      <tr><th>Aufgabe</th><th>Maria</th><th>Valentin</th></tr>
+  `;
+  tasks.forEach(t=>{
+    const m=d.stats?.[t.name]?.Maria||0;
+    const v=d.stats?.[t.name]?.Valentin||0;
+    statsTab.innerHTML+=`<tr><td>${t.name}</td><td>${m}</td><td>${v}</td></tr>`;
+  });
+  statsTab.innerHTML+="</table>";
+});
+
+/* Reset Statistik */
+function resetStats(){
+  if(confirm("Willst du wirklich alle Statistiken zurücksetzen?")){
+    db.ref("stats").set(null);
+  }
+}
+
+/* Tabs */
+function showTab(id){
+  tasksTab.style.display = (id==="tasksTab") ? "block":"none";
+  statsTab.style.display = (id==="statsTab") ? "block":"none";
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
+  event.currentTarget.classList.add("active");
+}
+
+const tasksTab=document.getElementById("tasksTab");
+const statsTab=document.getElementById("statsTab");
+</script>
+
+</body>
+</html>
