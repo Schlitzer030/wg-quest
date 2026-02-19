@@ -6,6 +6,7 @@
 <title>WG Quest Board 🏠</title>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
@@ -18,32 +19,35 @@ h1 { text-align:center; margin:10px 0; }
 .tab.active { background:#bbb; }
 
 #content { padding:10px; }
+#login { text-align:center; margin-top:50px; }
 
 .task { background:white; padding:12px; margin-bottom:10px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.1); display:flex; justify-content: space-between; gap: 10px; flex-wrap:wrap; }
-.task .meta { font-size:12px; margin-top:4px; }
 .status { display:inline-block; padding:2px 6px; border-radius:6px; font-size:11px; color:white; margin-top:2px; }
-
 button { border:none; border-radius:8px; padding:6px 10px; margin-top:4px; font-size:13px; color:white; cursor:pointer; }
 .maria { background:#e91e63; }
 .valentin { background:#3f51b5; }
 .undo { background:#9e9e9e; }
-
 .reset-btn { width:100%; padding:8px; margin-bottom:10px; background:#f44336; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; }
-
 canvas { background:white; border-radius:12px; padding:10px; }
+#user { text-align:center; margin:10px 0; font-weight:bold; }
 </style>
 </head>
 
 <body>
 
 <h1>🏠 WG Quest</h1>
+<div id="login">
+  <button id="googleSignIn" style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">Mit Google anmelden</button>
+</div>
 
-<div class="tabs">
+<div id="user"></div>
+
+<div class="tabs" style="display:none;">
   <div class="tab active" onclick="showTab('tasksTab')">Aufgaben</div>
   <div class="tab" onclick="showTab('statsTab')">Statistiken</div>
 </div>
 
-<div id="content">
+<div id="content" style="display:none;">
   <div id="tasksTab"></div>
   <div id="statsTab" style="display:none">
     <button class="reset-btn" onclick="resetStats()">Statistiken zurücksetzen</button>
@@ -62,32 +66,41 @@ firebase.initializeApp({
   messagingSenderId: "171906625585",
   appId: "1:171906625585:web:d7c618e3d7b70e72a2a510"
 });
+const auth=firebase.auth();
 const db=firebase.database();
 
-/* 🧹 Aufgaben */
+/* 🧹 Aufgaben kategorisiert nach Frequenz */
 const tasks = [
-  ["Wischen","🪣"],["Staub wischen","🧽"],["Bad putzen","🚿"],["Fenster putzen","🪟"],
-  ["Spülmaschine einräumen","🍽️"],["Spülmaschine ausräumen","🥄"],["Müll rausbringen","🗑️"],
-  ["Wäsche reinstecken","🧺"],["Wäsche aufhängen","👕"],["Wäsche abhängen","🧦"],
-  ["Aufräumen (Gemeinschaftsflächen)","📦"],["Glasmüll rausbringen","🍾"],["Bett beziehen","🛏️"],["Pfand wegbringen","♻️"],
-  ["Waschmaschine reinigen","🧼"],["Spülmaschine reinigen","🧽"],
-  ["Kühlschrank auswischen","❄️"],["Küchenablagen wischen","🍳"],
-  ["Einkaufen","🛒"],["Kochen","🍲"],["Blumen gießen","🌸"],["Deep Clean","🧨"]
-].map(t=>({name:t[0],emoji:t[1],points:15}));
+  // Täglich
+  ["Wäsche aufhängen","👕",10], ["Müll rausbringen","🗑️",10], ["Spülmaschine einräumen","🍽️",10], ["Spülmaschine ausräumen","🥄",10],
+  // Wöchentlich
+  ["Wischen","🪣",20], ["Staub wischen","🧽",20], ["Bad putzen","🚿",20], ["Fenster putzen","🪟",20],
+  // Monatlich / selten
+  ["Deep Clean","🧨",40], ["Kühlschrank auswischen","❄️",40], ["Pfand wegbringen","♻️",40], ["Bett beziehen","🛏️"], 
+  ["Glasmüll rausbringen","🍾"], ["Waschmaschine reinigen","🧼"], ["Spülmaschine reinigen","🧽"], ["Küchenablagen wischen","🍳"], ["Einkaufen","🛒"], ["Kochen","🍲"], ["Blumen gießen","🌸"]
+].map(t=>({name:t[0],emoji:t[1],points:t[2]||15}));
 
-/* Helfer */
+/* Helper */
 function days(ts){ if(!ts) return 0; return Math.floor((Date.now()-ts)/(1000*60*60*24)); }
 function color(days){ if(days<=1) return "#4caf50"; if(days<=3) return "#8bc34a"; if(days<=6) return "#ffeb3b"; if(days<=9) return "#ff9800"; if(days<=19) return "#f44336"; return "#8b0000"; }
 function fmt(ts){ if(!ts) return "noch nie"; const d=new Date(ts); return d.toLocaleDateString("de-DE")+" "+d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}); }
 
-/* ✔️ Aufgabe erledigt */
+/* ✔️ Done mit XP & Streak */
 function done(task,person){
   const now=Date.now();
   db.ref(`tasks/${task.name}/${person}`).set({ last:now });
-  db.ref(`scores/${person}`).transaction(v=>(v||0)+task.points);
-  db.ref(`scores/WG`).transaction(v=>(v||0)+task.points);
-  db.ref(`stats/${task.name}/${person}`).transaction(v=>(v||0)+1);
-  db.ref(`undo/${task.name}`).set({ person: person, last: now }); // speichern für Undo
+
+  // Streak-Check
+  db.ref(`tasks/${task.name}/${person}`).once("value").then(snap=>{
+    const data=snap.val();
+    const streak = (data?.last && now - data.last < 48*3600000) ? (data.streak||0)+1 : 1; 
+    db.ref(`tasks/${task.name}/${person}/streak`).set(streak);
+    const earned = task.points + streak*2;
+    db.ref(`scores/${person}`).transaction(v=>(v||0)+earned);
+    db.ref(`scores/WG`).transaction(v=>(v||0)+earned);
+    db.ref(`stats/${task.name}/${person}`).transaction(v=>(v||0)+1);
+    db.ref(`undo/${task.name}`).set({ person: person, last: now, earned: earned });
+  });
 }
 
 /* ↩️ Undo */
@@ -96,8 +109,8 @@ function undo(task){
     const data=s.val();
     if(data?.person){
       db.ref(`tasks/${task.name}/${data.person}`).set(null);
-      db.ref(`scores/${data.person}`).transaction(v=>(v||0)-task.points);
-      db.ref(`scores/WG`).transaction(v=>(v||0)-task.points);
+      db.ref(`scores/${data.person}`).transaction(v=>(v||0)-data.earned);
+      db.ref(`scores/WG`).transaction(v=>(v||0)-data.earned);
       db.ref(`stats/${task.name}/${data.person}`).transaction(v=>(v||0)-1);
       db.ref(`undo/${task.name}`).remove();
     }
@@ -106,14 +119,11 @@ function undo(task){
 
 /* 🔄 Render */
 let chart;
-db.ref("/").on("value",snap=>{
-  const d=snap.val()||{};
+function render(d){
   tasksTab.innerHTML="";
-
-  /* Aufgaben Tab */
   tasks.forEach(t=>{
-    let m=d.tasks?.[t.name]?.Maria?.last || Date.now();
-    let v=d.tasks?.[t.name]?.Valentin?.last || Date.now();
+    const m=d.tasks?.[t.name]?.Maria?.last || Date.now();
+    const v=d.tasks?.[t.name]?.Valentin?.last || Date.now();
     const lastBy = (!v || (m && m>v)) ? "Maria" : "Valentin";
 
     const el=document.createElement("div");
@@ -133,7 +143,7 @@ db.ref("/").on("value",snap=>{
     tasksTab.appendChild(el);
   });
 
-  /* Statistik Tab */
+  /* Statistik als Balkendiagramm */
   const labels = tasks.map(t=>t.name);
   const mariaData = tasks.map(t=>d.stats?.[t.name]?.Maria||0);
   const valentinData = tasks.map(t=>d.stats?.[t.name]?.Valentin||0);
@@ -142,22 +152,18 @@ db.ref("/").on("value",snap=>{
   if(chart) chart.destroy();
   chart = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels: labels,
-      datasets: [
-        { label: 'Maria', data: mariaData, backgroundColor:'#e91e63' },
-        { label: 'Valentin', data: valentinData, backgroundColor:'#3f51b5' }
-      ]
-    },
-    options:{
-      responsive:true,
-      plugins:{ legend:{position:'top'} },
-      scales:{
-        x:{ stacked:true },
-        y:{ stacked:true, beginAtZero:true }
-      }
-    }
+    data: { labels, datasets:[
+      { label:'Maria', data:mariaData, backgroundColor:'#e91e63' },
+      { label:'Valentin', data:valentinData, backgroundColor:'#3f51b5' }
+    ]},
+    options:{ responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true}} }
   });
+}
+
+/* Live-Listener */
+db.ref("/").on("value",snap=>{
+  const d=snap.val()||{};
+  render(d);
 });
 
 /* Reset Statistik */
@@ -174,6 +180,26 @@ function showTab(id){
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   event.currentTarget.classList.add("active");
 }
+
+/* 🔑 Google Sign-In */
+document.getElementById("googleSignIn").onclick = ()=>{
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider);
+};
+
+auth.onAuthStateChanged(user=>{
+  if(user){
+    document.getElementById("login").style.display="none";
+    document.getElementById("content").style.display="block";
+    document.querySelector(".tabs").style.display="flex";
+    document.getElementById("user").innerText=`Eingeloggt als: ${user.displayName}`;
+  }else{
+    document.getElementById("login").style.display="block";
+    document.getElementById("content").style.display="none";
+    document.querySelector(".tabs").style.display="none";
+    document.getElementById("user").innerText="";
+  }
+});
 
 const tasksTab=document.getElementById("tasksTab");
 const statsTab=document.getElementById("statsTab");
