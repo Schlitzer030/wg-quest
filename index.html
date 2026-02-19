@@ -3,29 +3,89 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WG Quest Board 🏠</title>
+<title>WG Quest 🏠</title>
 
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
-body { font-family: system-ui, sans-serif; background: #f2f2f2; margin:0; padding:0; }
+body {
+  font-family: system-ui, sans-serif;
+  background:#f3f3f3;
+  margin:0;
+  padding:0;
+}
 h1 { text-align:center; margin:10px 0; }
 
-.tabs { display:flex; justify-content:space-around; margin:10px 0; }
-.tab { flex:1; padding:10px; text-align:center; background:#ddd; cursor:pointer; font-weight:bold; }
+.tabs {
+  display:flex;
+}
+.tab {
+  flex:1;
+  padding:12px;
+  text-align:center;
+  font-weight:bold;
+  background:#ddd;
+}
 .tab.active { background:#bbb; }
 
-#content { padding:10px; }
-.task { background:white; padding:12px; margin-bottom:10px; border-radius:12px; box-shadow:0 2px 6px rgba(0,0,0,0.1); display:flex; justify-content: space-between; gap: 10px; flex-wrap:wrap; }
-.status { display:inline-block; padding:2px 6px; border-radius:6px; font-size:11px; color:white; margin-top:2px; }
-button { border:none; border-radius:8px; padding:6px 10px; margin-top:4px; font-size:13px; color:white; cursor:pointer; }
+.section { padding:10px; }
+
+.task {
+  background:white;
+  padding:12px;
+  margin-bottom:10px;
+  border-radius:14px;
+  box-shadow:0 2px 6px rgba(0,0,0,.1);
+}
+
+.task-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+}
+
+.task-meta {
+  font-size:12px;
+  opacity:.8;
+}
+
+button {
+  border:none;
+  border-radius:8px;
+  padding:6px 10px;
+  color:white;
+  cursor:pointer;
+}
 .maria { background:#e91e63; }
 .valentin { background:#3f51b5; }
 .undo { background:#9e9e9e; }
-.reset-btn { width:100%; padding:8px; margin-bottom:10px; background:#f44336; color:white; border:none; border-radius:8px; font-weight:bold; cursor:pointer; }
-canvas { background:white; border-radius:12px; padding:10px; }
+
+table {
+  width:100%;
+  border-collapse:collapse;
+  background:white;
+  margin-top:20px;
+}
+th, td {
+  border-bottom:1px solid #ddd;
+  padding:6px;
+  font-size:12px;
+  text-align:center;
+}
+th { background:#eee; }
+
+.reset {
+  background:#f44336;
+  width:100%;
+  padding:10px;
+  margin-top:10px;
+  border-radius:10px;
+}
 </style>
 </head>
 
@@ -34,139 +94,157 @@ canvas { background:white; border-radius:12px; padding:10px; }
 <h1>🏠 WG Quest</h1>
 
 <div class="tabs">
-  <div class="tab active" onclick="showTab('tasksTab')">Aufgaben</div>
-  <div class="tab" onclick="showTab('statsTab')">Statistiken</div>
+  <div class="tab active" onclick="showTab('tasks')">Aufgaben</div>
+  <div class="tab" onclick="showTab('stats')">Statistik</div>
 </div>
 
-<div id="content">
-  <div id="tasksTab"></div>
-  <div id="statsTab" style="display:none">
-    <button class="reset-btn" onclick="resetStats()">Statistiken zurücksetzen</button>
-    <canvas id="chartStats"></canvas>
-  </div>
+<!-- TASKS -->
+<div id="tasks" class="section">
+  <div id="taskList"></div>
+</div>
+
+<!-- STATS -->
+<div id="stats" class="section" style="display:none">
+  <canvas id="pieChart" height="260"></canvas>
+
+  <button class="reset" onclick="resetStats()">🔄 Statistiken zurücksetzen</button>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Aufgabe</th>
+        <th>Maria</th>
+        <th>Valentin</th>
+        <th>Gesamt</th>
+      </tr>
+    </thead>
+    <tbody id="statTable"></tbody>
+  </table>
 </div>
 
 <script>
 /* 🔥 Firebase */
 firebase.initializeApp({
   apiKey: "AIzaSyCRfZuJ-DQpmB-TEa7h2S_PHhal6JBy4KI",
-  authDomain: "wg-quest.firebaseapp.com",
-  databaseURL: "https://wg-quest-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "wg-quest",
-  storageBucket: "wg-quest.appspot.com",
-  messagingSenderId: "171906625585",
-  appId: "1:171906625585:web:d7c618e3d7b70e72a2a510"
+  databaseURL: "https://wg-quest-default-rtdb.europe-west1.firebasedatabase.app"
 });
-const db=firebase.database();
+const db = firebase.database();
 
-/* 🧹 Aufgaben kategorisiert nach Frequenz */
+/* 🧹 TASKS */
 const tasks = [
-  ["Wäsche aufhängen","👕",10], ["Müll rausbringen","🗑️",10], ["Spülmaschine einräumen","🍽️",10], ["Spülmaschine ausräumen","🥄",10],
-  ["Wischen","🪣",20], ["Staub wischen","🧽",20], ["Bad putzen","🚿",20], ["Fenster putzen","🪟",20],
-  ["Deep Clean","🧨",40], ["Kühlschrank auswischen","❄️",40], ["Pfand wegbringen","♻️",40], ["Bett beziehen","🛏️",40],
-  ["Glasmüll rausbringen","🍾",30], ["Waschmaschine reinigen","🧼",30], ["Spülmaschine reinigen","🧽",30], ["Küchenablagen wischen","🍳",30], ["Einkaufen","🛒",20], ["Kochen","🍲",20], ["Blumen gießen","🌸",10]
-].map(t=>({name:t[0],emoji:t[1],points:t[2]||15}));
+  {n:"Spülmaschine einräumen",e:"🍽️",c:"daily"},
+  {n:"Spülmaschine ausräumen",e:"🥄",c:"daily"},
+  {n:"Müll rausbringen",e:"🗑️",c:"daily"},
+  {n:"Wäsche aufhängen",e:"👕",c:"daily"},
+  {n:"Wäsche abhängen",e:"🧺",c:"daily"},
+  {n:"Küchenablagen wischen",e:"🍳",c:"daily"},
+  {n:"Kochen",e:"🍲",c:"daily"},
 
-function days(ts){ if(!ts) return 0; return Math.floor((Date.now()-ts)/(1000*60*60*24)); }
-function color(days){ if(days<=1) return "#4caf50"; if(days<=3) return "#8bc34a"; if(days<=6) return "#ffeb3b"; if(days<=9) return "#ff9800"; if(days<=19) return "#f44336"; return "#8b0000"; }
-function fmt(ts){ if(!ts) return "noch nie"; const d=new Date(ts); return d.toLocaleDateString("de-DE")+" "+d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}); }
+  {n:"Staub wischen",e:"🧽",c:"weekly"},
+  {n:"Bad putzen",e:"🚿",c:"weekly"},
+  {n:"Boden wischen",e:"🪣",c:"weekly"},
+  {n:"Fenster putzen",e:"🪟",c:"weekly"},
+  {n:"Glasmüll rausbringen",e:"🍾",c:"weekly"},
+  {n:"Einkaufen",e:"🛒",c:"weekly"},
+  {n:"Blumen gießen",e:"🌸",c:"weekly"},
+  {n:"Bett beziehen",e:"🛏️",c:"weekly"},
 
-/* ✔️ Done mit XP & Streak */
-function done(task,person){
-  const now=Date.now();
-  db.ref(`tasks/${task.name}/${person}`).set({ last:now });
-  db.ref(`tasks/${task.name}/${person}`).once("value").then(snap=>{
-    const data=snap.val();
-    const streak = (data?.last && now - data.last < 48*3600000) ? (data.streak||0)+1 : 1;
-    db.ref(`tasks/${task.name}/${person}/streak`).set(streak);
-    const earned = task.points + streak*2;
-    db.ref(`scores/${person}`).transaction(v=>(v||0)+earned);
-    db.ref(`scores/WG`).transaction(v=>(v||0)+earned);
-    db.ref(`stats/${task.name}/${person}`).transaction(v=>(v||0)+1);
-    db.ref(`undo/${task.name}`).set({ person: person, last: now, earned: earned });
-  });
-}
+  {n:"Pfand wegbringen",e:"♻️",c:"monthly"},
+  {n:"Kühlschrank auswischen",e:"❄️",c:"monthly"},
+  {n:"Deep Clean",e:"🧨",c:"monthly"},
+  {n:"Waschmaschine reinigen",e:"🧼",c:"monthly"},
+  {n:"Spülmaschine reinigen",e:"🧽",c:"monthly"}
+];
 
-/* ↩️ Undo */
-function undo(task){
-  db.ref(`undo/${task.name}`).once("value").then(s=>{
-    const data=s.val();
-    if(data?.person){
-      db.ref(`tasks/${task.name}/${data.person}`).set(null);
-      db.ref(`scores/${data.person}`).transaction(v=>(v||0)-data.earned);
-      db.ref(`scores/WG`).transaction(v=>(v||0)-data.earned);
-      db.ref(`stats/${task.name}/${data.person}`).transaction(v=>(v||0)-1);
-      db.ref(`undo/${task.name}`).remove();
-    }
-  });
-}
-
-/* 🔄 Render */
-let chart;
-function render(d){
-  tasksTab.innerHTML="";
-  tasks.forEach(t=>{
-    const m=d.tasks?.[t.name]?.Maria?.last || Date.now();
-    const v=d.tasks?.[t.name]?.Valentin?.last || Date.now();
-    const lastBy = (!v || (m && m>v)) ? "Maria" : "Valentin";
-
-    const el=document.createElement("div");
-    el.className="task";
-    el.innerHTML=`
-      <div>
-        <strong>${t.emoji} ${t.name}</strong> <br>
-        Zuletzt erledigt: ${lastBy}<br>
-        👩 ${fmt(m)} <span class="status" style="background:${color(days(m))}">vor ${days(m)} Tagen</span><br>
-        👨 ${fmt(v)} <span class="status" style="background:${color(days(v))}">vor ${days(v)} Tagen</span>
-      </div>
-      <div style="min-width:80px;">
-        <button class="maria" onclick='done(${JSON.stringify(t)},"Maria")'>Maria ✔</button>
-        <button class="valentin" onclick='done(${JSON.stringify(t)},"Valentin")'>Valentin ✔</button>
-        <button class="undo" onclick='undo(${JSON.stringify(t)})'>↩️ Zurück</button>
-      </div>`;
-    tasksTab.appendChild(el);
-  });
-
-  /* Statistik als Balkendiagramm */
-  const labels = tasks.map(t=>t.name);
-  const mariaData = tasks.map(t=>d.stats?.[t.name]?.Maria||0);
-  const valentinData = tasks.map(t=>d.stats?.[t.name]?.Valentin||0);
-
-  const ctx = document.getElementById('chartStats').getContext('2d');
-  if(chart) chart.destroy();
-  chart = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets:[
-      { label:'Maria', data:mariaData, backgroundColor:'#e91e63' },
-      { label:'Valentin', data:valentinData, backgroundColor:'#3f51b5' }
-    ]},
-    options:{ responsive:true, plugins:{legend:{position:'top'}}, scales:{x:{stacked:true}, y:{stacked:true, beginAtZero:true}} }
-  });
-}
-
-/* Live-Listener */
-db.ref("/").on("value",snap=>{
-  const d=snap.val()||{};
-  render(d);
-});
-
-/* Reset Statistik */
-function resetStats(){
-  if(confirm("Willst du wirklich alle Statistiken zurücksetzen?")){
-    db.ref("stats").set(null);
-  }
-}
-
-/* Tabs */
 function showTab(id){
-  tasksTab.style.display = (id==="tasksTab") ? "block":"none";
-  statsTab.style.display = (id==="statsTab") ? "block":"none";
+  tasksDiv.style.display = id==="tasks"?"block":"none";
+  stats.style.display = id==="stats"?"block":"none";
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   event.currentTarget.classList.add("active");
 }
 
-const tasksTab=document.getElementById("tasksTab");
-const statsTab=document.getElementById("statsTab");
+function markDone(task, person){
+  const now = Date.now();
+  db.ref(`history/${task.n}`).set({person, time:now});
+  db.ref(`stats/${task.n}/${person}`).transaction(v=>(v||0)+1);
+  render();
+}
+
+function undo(task){
+  db.ref(`history/${task.n}`).remove();
+}
+
+function render(){
+  const list = document.getElementById("taskList");
+  list.innerHTML="";
+
+  db.ref("history").once("value").then(s=>{
+    const hist=s.val()||{};
+    tasks.forEach(t=>{
+      const h=hist[t.n];
+      const days = h?Math.floor((Date.now()-h.time)/86400000):0;
+      const div=document.createElement("div");
+      div.className="task";
+      div.innerHTML=`
+        <div class="task-header">
+          <strong>${t.e} ${t.n}</strong>
+          <span class="task-meta">${h?`zuletzt: ${h.person} · vor ${days} Tagen`:"noch nie"}</span>
+        </div>
+        <div style="margin-top:8px">
+          <button class="maria" onclick='markDone(${JSON.stringify(t)},"Maria")'>Maria ✔</button>
+          <button class="valentin" onclick='markDone(${JSON.stringify(t)},"Valentin")'>Valentin ✔</button>
+          <button class="undo" onclick='undo(${JSON.stringify(t)})'>↩</button>
+        </div>
+      `;
+      list.appendChild(div);
+    });
+  });
+
+  renderStats();
+}
+
+let chart;
+function renderStats(){
+  db.ref("stats").once("value").then(s=>{
+    const data=s.val()||{};
+    let maria=0,valentin=0;
+    const tbody=document.getElementById("statTable");
+    tbody.innerHTML="";
+
+    Object.keys(data).forEach(task=>{
+      const m=data[task].Maria||0;
+      const v=data[task].Valentin||0;
+      maria+=m; valentin+=v;
+      tbody.innerHTML+=`
+        <tr>
+          <td>${task}</td>
+          <td>${m}</td>
+          <td>${v}</td>
+          <td>${m+v}</td>
+        </tr>`;
+    });
+
+    if(chart) chart.destroy();
+    chart=new Chart(document.getElementById("pieChart"),{
+      type:"pie",
+      data:{
+        labels:["Maria","Valentin"],
+        datasets:[{
+          data:[maria,valentin],
+          backgroundColor:["#e91e63","#3f51b5"]
+        }]
+      }
+    });
+  });
+}
+
+function resetStats(){
+  if(confirm("Statistiken wirklich löschen?")){
+    db.ref("stats").remove();
+  }
+}
+
+render();
 </script>
 
 </body>
