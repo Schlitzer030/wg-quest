@@ -36,8 +36,11 @@ canvas { background:white; border-radius:12px; padding:10px; }
 <body>
 
 <h1>🏠 WG Quest</h1>
+
 <div id="login">
-  <button id="googleSignIn" style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">Mit Google anmelden</button>
+  <button id="googleSignIn" style="padding:10px 20px;background:#4285f4;color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;">
+    Mit Google anmelden
+  </button>
 </div>
 
 <div id="user"></div>
@@ -76,8 +79,8 @@ const tasks = [
   // Wöchentlich
   ["Wischen","🪣",20], ["Staub wischen","🧽",20], ["Bad putzen","🚿",20], ["Fenster putzen","🪟",20],
   // Monatlich / selten
-  ["Deep Clean","🧨",40], ["Kühlschrank auswischen","❄️",40], ["Pfand wegbringen","♻️",40], ["Bett beziehen","🛏️"], 
-  ["Glasmüll rausbringen","🍾"], ["Waschmaschine reinigen","🧼"], ["Spülmaschine reinigen","🧽"], ["Küchenablagen wischen","🍳"], ["Einkaufen","🛒"], ["Kochen","🍲"], ["Blumen gießen","🌸"]
+  ["Deep Clean","🧨",40], ["Kühlschrank auswischen","❄️",40], ["Pfand wegbringen","♻️",40], ["Bett beziehen","🛏️",40],
+  ["Glasmüll rausbringen","🍾",30], ["Waschmaschine reinigen","🧼",30], ["Spülmaschine reinigen","🧽",30], ["Küchenablagen wischen","🍳",30], ["Einkaufen","🛒",20], ["Kochen","🍲",20], ["Blumen gießen","🌸",10]
 ].map(t=>({name:t[0],emoji:t[1],points:t[2]||15}));
 
 /* Helper */
@@ -90,10 +93,9 @@ function done(task,person){
   const now=Date.now();
   db.ref(`tasks/${task.name}/${person}`).set({ last:now });
 
-  // Streak-Check
   db.ref(`tasks/${task.name}/${person}`).once("value").then(snap=>{
     const data=snap.val();
-    const streak = (data?.last && now - data.last < 48*3600000) ? (data.streak||0)+1 : 1; 
+    const streak = (data?.last && now - data.last < 48*3600000) ? (data.streak||0)+1 : 1;
     db.ref(`tasks/${task.name}/${person}/streak`).set(streak);
     const earned = task.points + streak*2;
     db.ref(`scores/${person}`).transaction(v=>(v||0)+earned);
@@ -181,11 +183,24 @@ function showTab(id){
   event.currentTarget.classList.add("active");
 }
 
-/* 🔑 Google Sign-In */
+/* 🔑 Google Sign-In mit Redirect */
 document.getElementById("googleSignIn").onclick = ()=>{
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider);
+  auth.signInWithRedirect(provider); 
 };
+
+// Nach Redirect zurück
+auth.getRedirectResult().then((result) => {
+  if(result.user){
+    const user = result.user;
+    document.getElementById("login").style.display="none";
+    document.getElementById("content").style.display="block";
+    document.querySelector(".tabs").style.display="flex";
+    document.getElementById("user").innerText=`Eingeloggt als: ${user.displayName}`;
+  }
+}).catch((error)=>{
+  console.error("Login Fehler:", error);
+});
 
 auth.onAuthStateChanged(user=>{
   if(user){
