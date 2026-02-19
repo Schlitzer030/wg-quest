@@ -14,26 +14,25 @@
 
 <style>
 body {
-  font-family: system-ui, sans-serif;
-  background:#f3f3f3;
   margin:0;
-  padding:0;
+  font-family: system-ui, sans-serif;
+  background:#f4f4f4;
 }
-h1 { text-align:center; margin:10px 0; }
+h1 { text-align:center; margin:12px 0; }
 
 .tabs {
   display:flex;
 }
 .tab {
   flex:1;
-  padding:12px;
   text-align:center;
+  padding:12px;
   font-weight:bold;
   background:#ddd;
 }
 .tab.active { background:#bbb; }
 
-.section { padding:10px; }
+.section { padding:12px; }
 
 .task {
   background:white;
@@ -54,16 +53,37 @@ h1 { text-align:center; margin:10px 0; }
   opacity:.8;
 }
 
+.buttons {
+  margin-top:8px;
+  display:flex;
+  gap:6px;
+}
+
 button {
   border:none;
   border-radius:8px;
   padding:6px 10px;
   color:white;
-  cursor:pointer;
 }
+
 .maria { background:#e91e63; }
 .valentin { background:#3f51b5; }
 .undo { background:#9e9e9e; }
+
+.add-box {
+  background:white;
+  padding:12px;
+  border-radius:14px;
+  margin-bottom:14px;
+}
+
+input, select {
+  width:100%;
+  padding:6px;
+  margin-bottom:6px;
+  border-radius:6px;
+  border:1px solid #ccc;
+}
 
 table {
   width:100%;
@@ -72,8 +92,8 @@ table {
   margin-top:20px;
 }
 th, td {
-  border-bottom:1px solid #ddd;
   padding:6px;
+  border-bottom:1px solid #ddd;
   font-size:12px;
   text-align:center;
 }
@@ -94,21 +114,30 @@ th { background:#eee; }
 <h1>🏠 WG Quest</h1>
 
 <div class="tabs">
-  <div class="tab active" onclick="showTab('tasks')">Aufgaben</div>
-  <div class="tab" onclick="showTab('stats')">Statistik</div>
+  <div class="tab active" onclick="switchTab('tasks')">Aufgaben</div>
+  <div class="tab" onclick="switchTab('stats')">Statistik</div>
 </div>
 
 <!-- TASKS -->
 <div id="tasks" class="section">
+  <div class="add-box">
+    <h3>➕ Aufgabe hinzufügen</h3>
+    <input id="newName" placeholder="Name">
+    <input id="newEmoji" placeholder="Emoji (z.B. 🧽)">
+    <select id="newCat">
+      <option value="daily">Täglich</option>
+      <option value="weekly">Wöchentlich</option>
+      <option value="monthly">Monatlich</option>
+    </select>
+    <button style="background:#4caf50" onclick="addTask()">Hinzufügen</button>
+  </div>
   <div id="taskList"></div>
 </div>
 
 <!-- STATS -->
 <div id="stats" class="section" style="display:none">
   <canvas id="pieChart" height="260"></canvas>
-
-  <button class="reset" onclick="resetStats()">🔄 Statistiken zurücksetzen</button>
-
+  <button class="reset" onclick="resetStats()">🔄 Statistik zurücksetzen</button>
   <table>
     <thead>
       <tr>
@@ -123,83 +152,98 @@ th { background:#eee; }
 </div>
 
 <script>
-/* 🔥 Firebase */
 firebase.initializeApp({
   apiKey: "AIzaSyCRfZuJ-DQpmB-TEa7h2S_PHhal6JBy4KI",
   databaseURL: "https://wg-quest-default-rtdb.europe-west1.firebasedatabase.app"
 });
 const db = firebase.database();
 
-/* 🧹 TASKS */
-const tasks = [
-  {n:"Spülmaschine einräumen",e:"🍽️",c:"daily"},
-  {n:"Spülmaschine ausräumen",e:"🥄",c:"daily"},
-  {n:"Müll rausbringen",e:"🗑️",c:"daily"},
-  {n:"Wäsche aufhängen",e:"👕",c:"daily"},
-  {n:"Wäsche abhängen",e:"🧺",c:"daily"},
-  {n:"Küchenablagen wischen",e:"🍳",c:"daily"},
-  {n:"Kochen",e:"🍲",c:"daily"},
+const defaultTasks = [
+  ["Spülmaschine einräumen","🍽️","daily"],
+  ["Spülmaschine ausräumen","🥄","daily"],
+  ["Müll rausbringen","🗑️","daily"],
+  ["Wäsche aufhängen","👕","daily"],
+  ["Wäsche abhängen","🧺","daily"],
+  ["Küchenablagen wischen","🍳","daily"],
+  ["Kochen","🍲","daily"],
 
-  {n:"Staub wischen",e:"🧽",c:"weekly"},
-  {n:"Bad putzen",e:"🚿",c:"weekly"},
-  {n:"Boden wischen",e:"🪣",c:"weekly"},
-  {n:"Fenster putzen",e:"🪟",c:"weekly"},
-  {n:"Glasmüll rausbringen",e:"🍾",c:"weekly"},
-  {n:"Einkaufen",e:"🛒",c:"weekly"},
-  {n:"Blumen gießen",e:"🌸",c:"weekly"},
-  {n:"Bett beziehen",e:"🛏️",c:"weekly"},
+  ["Staub wischen","🧽","weekly"],
+  ["Bad putzen","🚿","weekly"],
+  ["Boden wischen","🪣","weekly"],
+  ["Fenster putzen","🪟","weekly"],
+  ["Glasmüll rausbringen","🍾","weekly"],
+  ["Einkaufen","🛒","weekly"],
+  ["Blumen gießen","🌸","weekly"],
+  ["Bett beziehen","🛏️","weekly"],
 
-  {n:"Pfand wegbringen",e:"♻️",c:"monthly"},
-  {n:"Kühlschrank auswischen",e:"❄️",c:"monthly"},
-  {n:"Deep Clean",e:"🧨",c:"monthly"},
-  {n:"Waschmaschine reinigen",e:"🧼",c:"monthly"},
-  {n:"Spülmaschine reinigen",e:"🧽",c:"monthly"}
+  ["Pfand wegbringen","♻️","monthly"],
+  ["Kühlschrank auswischen","❄️","monthly"],
+  ["Deep Clean","🧨","monthly"]
 ];
 
-function showTab(id){
-  tasksDiv.style.display = id==="tasks"?"block":"none";
-  stats.style.display = id==="stats"?"block":"none";
+db.ref("taskDefs").once("value").then(s=>{
+  if(!s.exists()){
+    defaultTasks.forEach(t=>{
+      db.ref("taskDefs/"+t[0]).set({name:t[0],emoji:t[1],cat:t[2]});
+    });
+  }
+});
+
+function switchTab(tab){
+  tasks.style.display = tab==="tasks"?"block":"none";
+  stats.style.display = tab==="stats"?"block":"none";
   document.querySelectorAll(".tab").forEach(t=>t.classList.remove("active"));
   event.currentTarget.classList.add("active");
 }
 
+function addTask(){
+  if(!newName.value) return alert("Name fehlt");
+  db.ref("taskDefs/"+newName.value).set({
+    name:newName.value,
+    emoji:newEmoji.value||"🧹",
+    cat:newCat.value
+  });
+  newName.value=newEmoji.value="";
+}
+
 function markDone(task, person){
-  const now = Date.now();
-  db.ref(`history/${task.n}`).set({person, time:now});
-  db.ref(`stats/${task.n}/${person}`).transaction(v=>(v||0)+1);
+  const now=Date.now();
+  db.ref("history/"+task.name).set({person,time:now});
+  db.ref("stats/"+task.name+"/"+person).transaction(v=>(v||0)+1);
   render();
 }
 
 function undo(task){
-  db.ref(`history/${task.n}`).remove();
+  db.ref("history/"+task.name).remove();
+  render();
 }
 
 function render(){
-  const list = document.getElementById("taskList");
-  list.innerHTML="";
-
-  db.ref("history").once("value").then(s=>{
-    const hist=s.val()||{};
-    tasks.forEach(t=>{
-      const h=hist[t.n];
-      const days = h?Math.floor((Date.now()-h.time)/86400000):0;
-      const div=document.createElement("div");
-      div.className="task";
-      div.innerHTML=`
-        <div class="task-header">
-          <strong>${t.e} ${t.n}</strong>
-          <span class="task-meta">${h?`zuletzt: ${h.person} · vor ${days} Tagen`:"noch nie"}</span>
-        </div>
-        <div style="margin-top:8px">
-          <button class="maria" onclick='markDone(${JSON.stringify(t)},"Maria")'>Maria ✔</button>
-          <button class="valentin" onclick='markDone(${JSON.stringify(t)},"Valentin")'>Valentin ✔</button>
-          <button class="undo" onclick='undo(${JSON.stringify(t)})'>↩</button>
-        </div>
-      `;
-      list.appendChild(div);
+  db.ref("taskDefs").once("value").then(s=>{
+    const defs=s.val();
+    const list=document.getElementById("taskList");
+    list.innerHTML="";
+    db.ref("history").once("value").then(h=>{
+      const hist=h.val()||{};
+      Object.values(defs).forEach(t=>{
+        const d=hist[t.name];
+        const days=d?Math.floor((Date.now()-d.time)/86400000):0;
+        const div=document.createElement("div");
+        div.className="task";
+        div.innerHTML=`
+          <div class="task-header">
+            <strong>${t.emoji} ${t.name}</strong>
+            <span class="task-meta">${d?`${d.person} · vor ${days} Tagen`:"noch nie"}</span>
+          </div>
+          <div class="buttons">
+            <button class="maria" onclick='markDone(${JSON.stringify(t)},"Maria")'>Maria ✔</button>
+            <button class="valentin" onclick='markDone(${JSON.stringify(t)},"Valentin")'>Valentin ✔</button>
+            <button class="undo" onclick='undo(${JSON.stringify(t)})'>↩</button>
+          </div>`;
+        list.appendChild(div);
+      });
     });
   });
-
   renderStats();
 }
 
@@ -208,44 +252,31 @@ function renderStats(){
   db.ref("stats").once("value").then(s=>{
     const data=s.val()||{};
     let maria=0,valentin=0;
-    const tbody=document.getElementById("statTable");
-    tbody.innerHTML="";
-
+    statTable.innerHTML="";
     Object.keys(data).forEach(task=>{
       const m=data[task].Maria||0;
       const v=data[task].Valentin||0;
       maria+=m; valentin+=v;
-      tbody.innerHTML+=`
-        <tr>
-          <td>${task}</td>
-          <td>${m}</td>
-          <td>${v}</td>
-          <td>${m+v}</td>
-        </tr>`;
+      statTable.innerHTML+=`<tr><td>${task}</td><td>${m}</td><td>${v}</td><td>${m+v}</td></tr>`;
     });
-
     if(chart) chart.destroy();
-    chart=new Chart(document.getElementById("pieChart"),{
+    chart=new Chart(pieChart,{
       type:"pie",
       data:{
         labels:["Maria","Valentin"],
-        datasets:[{
-          data:[maria,valentin],
-          backgroundColor:["#e91e63","#3f51b5"]
-        }]
+        datasets:[{data:[maria,valentin],backgroundColor:["#e91e63","#3f51b5"]}]
       }
     });
   });
 }
 
 function resetStats(){
-  if(confirm("Statistiken wirklich löschen?")){
+  if(confirm("Statistiken löschen?")){
     db.ref("stats").remove();
   }
 }
 
 render();
 </script>
-
 </body>
 </html>
