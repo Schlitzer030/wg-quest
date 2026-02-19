@@ -2,36 +2,48 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<title>WG Quest Board 🔥</title>
+<title>WG Quest Board 🏠</title>
 
-<!-- Firebase COMPAT (wichtig!) -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <style>
   body {
     font-family: system-ui, sans-serif;
-    background: linear-gradient(135deg, #fdfbfb, #ebedee);
+    background: #f2f2f2;
     padding: 20px;
   }
+
   h1 { text-align: center; }
 
   .scores {
     display: flex;
     justify-content: space-around;
     margin-bottom: 20px;
-    font-size: 16px;
   }
 
   .task {
     background: white;
-    padding: 15px;
+    padding: 14px;
     margin-bottom: 12px;
     border-radius: 14px;
     box-shadow: 0 4px 10px rgba(0,0,0,0.08);
     display: flex;
     justify-content: space-between;
-    align-items: center;
+    gap: 10px;
+  }
+
+  .meta {
+    font-size: 13px;
+    margin-top: 4px;
+  }
+
+  .status {
+    padding: 4px 8px;
+    border-radius: 8px;
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 12px;
   }
 
   button {
@@ -40,6 +52,7 @@
     padding: 6px 10px;
     cursor: pointer;
     color: white;
+    font-size: 13px;
   }
 
   .maria { background: #e91e63; }
@@ -60,8 +73,8 @@
 <div id="tasks"></div>
 
 <script>
-/* 🔥 FIREBASE KONFIGURATION */
-const firebaseConfig = {
+/* 🔥 FIREBASE */
+firebase.initializeApp({
   apiKey: "AIzaSyCRfZuJ-DQpmB-TEa7h2S_PHhal6JBy4KI",
   authDomain: "wg-quest.firebaseapp.com",
   databaseURL: "https://wg-quest-default-rtdb.europe-west1.firebasedatabase.app",
@@ -69,68 +82,86 @@ const firebaseConfig = {
   storageBucket: "wg-quest.appspot.com",
   messagingSenderId: "171906625585",
   appId: "1:171906625585:web:d7c618e3d7b70e72a2a510"
-};
+});
 
-firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-/* 👥 Personen */
-const persons = ["Maria", "Valentin"];
-
-/* 🧹 Aufgaben */
+/* 🧹 AUFGABEN */
 const tasks = [
-  { name: "Staubsaugen", emoji: "🧹", points: 15 },
-  { name: "Wischen", emoji: "🪣", points: 20 },
-  { name: "Bad putzen", emoji: "🚿", points: 25 },
-  { name: "Spülmaschine", emoji: "🍽️", points: 5 },
-  { name: "Wäsche", emoji: "🧺", points: 10 },
-  { name: "Aufräumen", emoji: "📦", points: 15 }
-];
+  ["Wischen","🪣"],["Staub wischen","🧽"],["Bad putzen","🚿"],["Fenster putzen","🪟"],
+  ["Spülmaschine einräumen","🍽️"],["Spülmaschine ausräumen","🥄"],["Müll rausbringen","🗑️"],
+  ["Wäsche reinstecken","🧺"],["Wäsche aufhängen","👕"],["Wäsche abhängen","🧦"],
+  ["Aufräumen (Gemeinschaftsflächen)","📦"],
+  ["Glasmüll rausbringen","🍾"],["Bett beziehen","🛏️"],["Pfand wegbringen","♻️"],
+  ["Waschmaschine reinigen","🧼"],["Spülmaschine reinigen","🧽"],
+  ["Kühlschrank auswischen","❄️"],["Küchenablagen wischen","🍳"],
+  ["Einkaufen","🛒"],["Kochen","🍲"],["Blumen gießen","🌸"],["Deep Clean","🧨"]
+].map(t => ({ name:t[0], emoji:t[1], points:15 }));
 
-/* ✔ Aufgabe erledigt */
-function markDone(task, person) {
-  const now = Date.now();
-  const ref = db.ref(`tasks/${task.name}/${person}`);
-
-  ref.once("value").then(snapshot => {
-    const data = snapshot.val() || { last: 0, streak: 0 };
-    const streak = (now - data.last < 86400000) ? data.streak + 1 : 1;
-    const earned = task.points + streak * 2;
-
-    ref.set({ last: now, streak });
-
-    db.ref(`scores/${person}`).transaction(v => (v || 0) + earned);
-    db.ref("scores/WG").transaction(v => (v || 0) + earned);
-  });
+/* ⏱️ Helfer */
+function days(ts){
+  if(!ts) return 999;
+  return Math.floor((Date.now()-ts)/(1000*60*60*24));
 }
 
-/* 🔄 Render */
-function render(snapshot) {
-  const data = snapshot.val() || {};
+function color(days){
+  if(days<=1) return "#4caf50";
+  if(days<=3) return "#8bc34a";
+  if(days<=6) return "#ffeb3b";
+  if(days<=9) return "#ff9800";
+  if(days<=19) return "#f44336";
+  return "#8b0000";
+}
 
-  document.getElementById("scoreMaria").innerText = data.scores?.Maria || 0;
-  document.getElementById("scoreValentin").innerText = data.scores?.Valentin || 0;
-  document.getElementById("scoreWG").innerText = data.scores?.WG || 0;
+function fmt(ts){
+  if(!ts) return "noch nie";
+  const d=new Date(ts);
+  return d.toLocaleDateString("de-DE")+" "+d.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+}
 
-  const container = document.getElementById("tasks");
-  container.innerHTML = "";
+/* ✔️ ERLEDIGT */
+function done(task, person){
+  const now=Date.now();
+  db.ref(`tasks/${task.name}/${person}`).set({ last:now });
+  db.ref(`scores/${person}`).transaction(v=>(v||0)+task.points);
+  db.ref(`scores/WG`).transaction(v=>(v||0)+task.points);
+}
 
-  tasks.forEach(task => {
-    const div = document.createElement("div");
-    div.className = "task";
-    div.innerHTML = `
-      <div><strong>${task.emoji} ${task.name}</strong></div>
+/* 🔄 RENDER */
+db.ref("/").on("value", snap=>{
+  const d=snap.val()||{};
+  scoreMaria.innerText=d.scores?.Maria||0;
+  scoreValentin.innerText=d.scores?.Valentin||0;
+  scoreWG.innerText=d.scores?.WG||0;
+
+  tasksDiv.innerHTML="";
+  tasks.forEach(t=>{
+    const m=d.tasks?.[t.name]?.Maria?.last;
+    const v=d.tasks?.[t.name]?.Valentin?.last;
+
+    const md=days(m), vd=days(v);
+
+    const el=document.createElement("div");
+    el.className="task";
+    el.innerHTML=`
       <div>
-        <button class="maria" onclick='markDone(${JSON.stringify(task)},"Maria")'>Maria ✔</button>
-        <button class="valentin" onclick='markDone(${JSON.stringify(task)},"Valentin")'>Valentin ✔</button>
+        <strong>${t.emoji} ${t.name}</strong>
+        <div class="meta">
+          👩 ${fmt(m)}
+          <div class="status" style="background:${color(md)}">vor ${md} Tagen</div><br>
+          👨 ${fmt(v)}
+          <div class="status" style="background:${color(vd)}">vor ${vd} Tagen</div>
+        </div>
       </div>
-    `;
-    container.appendChild(div);
+      <div>
+        <button class="maria" onclick='done(${JSON.stringify(t)},"Maria")'>Maria ✔</button><br><br>
+        <button class="valentin" onclick='done(${JSON.stringify(t)},"Valentin")'>Valentin ✔</button>
+      </div>`;
+    tasksDiv.appendChild(el);
   });
-}
+});
 
-/* 👂 Live-Sync */
-db.ref("/").on("value", render);
+const tasksDiv=document.getElementById("tasks");
 </script>
 
 </body>
