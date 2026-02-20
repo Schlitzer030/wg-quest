@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>WG Quest</title>
+<title>🏠 WG Quest</title>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
@@ -11,141 +11,203 @@
 
 <style>
 body {
-  margin:0;
-  font-family: system-ui, sans-serif;
-  background:#f2f4f7;
+  margin: 0;
+  font-family: -apple-system, system-ui, sans-serif;
+  background: #f4f6f8;
 }
 header {
-  text-align:center;
-  padding:14px;
-  font-weight:700;
-  font-size:20px;
+  background: linear-gradient(135deg, #4facfe, #00f2fe);
+  color: white;
+  padding: 16px;
+  text-align: center;
+}
+select {
+  padding: 6px;
+  border-radius: 8px;
 }
 .tabs {
-  position:fixed;
-  bottom:0;
-  width:100%;
-  display:flex;
-  background:white;
-  border-top:1px solid #ddd;
+  display: flex;
+  background: white;
 }
-.tab {
-  flex:1;
-  text-align:center;
-  padding:10px;
-  font-size:12px;
+.tabs button {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  background: none;
+  font-weight: bold;
 }
-.section {
-  padding:12px;
-  padding-bottom:70px;
+.tabs button.active {
+  border-bottom: 3px solid #4facfe;
 }
-.room {
-  background:white;
-  border-radius:18px;
-  padding:14px;
-  margin-bottom:14px;
-  box-shadow:0 4px 12px rgba(0,0,0,.08);
-}
+section { display: none; padding: 16px; }
+section.active { display: block; }
+
 .task {
-  margin-top:10px;
-  padding:10px;
-  border-radius:12px;
-  background:#f7f7f7;
-  border-left:6px solid green;
+  background: white;
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 12px;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
-.task.overdue {
-  border-left-color:red;
-  background:#ffecec;
-}
-.meta {
-  font-size:12px;
-  opacity:.7;
-}
-.buttons {
-  margin-top:6px;
-}
-button {
-  border:none;
-  border-radius:8px;
-  padding:6px 10px;
-  color:white;
-}
-.maria { background:#e91e63; }
-.valentin { background:#3f51b5; }
+.task small { opacity: 0.7; }
+
+button.done { background: #2ecc71; color: white; border-radius: 8px; border: none; padding: 6px 10px; }
+button.undo { background: #bdc3c7; border-radius: 8px; border: none; padding: 6px 10px; }
+
 </style>
 </head>
 
 <body>
 
-<header>🏠 WG Quest</header>
-
-<div id="rooms" class="section"></div>
+<header>
+  <h1>🏠 WG Quest</h1>
+  <div>
+    Aktiver Spieler:
+    <select id="userSelect" onchange="setUser()">
+      <option>Maria</option>
+      <option>Valentin</option>
+    </select>
+  </div>
+  <div id="xpDisplay">Level 1 – 0 XP</div>
+</header>
 
 <div class="tabs">
-  <div class="tab">🏠 Räume</div>
-  <div class="tab">📋 Aufgaben</div>
-  <div class="tab">📊 Stats</div>
-  <div class="tab">⚙️</div>
+  <button onclick="showTab('tasks')" class="active">🧹 Aufgaben</button>
+  <button onclick="showTab('stats')">📊 Statistik</button>
 </div>
 
+<section id="tasks" class="active"></section>
+<section id="stats">
+  <canvas id="chart"></canvas>
+</section>
+
 <script>
+// 🔥 FIREBASE
 firebase.initializeApp({
   apiKey: "AIzaSyCRfZuJ-DQpmB-TEa7h2S_PHhal6JBy4KI",
-  databaseURL: "https://wg-quest-default-rtdb.europe-west1.firebasedatabase.app"
+  authDomain: "wg-quest.firebaseapp.com",
+  projectId: "wg-quest",
+  storageBucket: "wg-quest.firebasestorage.app",
+  messagingSenderId: "171906625585",
+  appId: "1:171906625585:web:d7c618e3d7b70e72a2a510"
 });
 const db = firebase.database();
 
-const rooms = {
-  Küche: ["Spülmaschine einräumen","Spülmaschine ausräumen","Küchenablagen wischen","Müll rausbringen"],
-  Bad: ["Bad putzen","Staub wischen","Fenster putzen"],
-  Wohnzimmer: ["Staub wischen","Boden wischen"],
-  Schlafzimmer: ["Bett beziehen","Wäsche aufhängen","Wäsche abhängen"]
-};
-
-function colorByDays(days){
-  if(days<=1) return "green";
-  if(days<=3) return "lightgreen";
-  if(days<=5) return "orange";
-  return "red";
+// 👤 USER
+let currentUser = "Maria";
+function setUser() {
+  currentUser = document.getElementById("userSelect").value;
+  loadXP();
 }
 
-function mark(task, person){
-  db.ref("history/"+task).set({by:person,time:Date.now()});
-  render();
+// 🎮 XP
+function levelFromXP(xp) {
+  return Math.floor(xp / 300) + 1;
 }
 
-function render(){
-  const root=document.getElementById("rooms");
-  root.innerHTML="";
-  db.ref("history").once("value").then(s=>{
-    const h=s.val()||{};
-    Object.keys(rooms).forEach(room=>{
-      const div=document.createElement("div");
-      div.className="room";
-      div.innerHTML=`<h3>${room}</h3>`;
-      rooms[room].forEach(t=>{
-        const d=h[t];
-        const days=d?Math.floor((Date.now()-d.time)/86400000):999;
-        const task=document.createElement("div");
-        task.className="task"+(days>7?" overdue":"");
-        task.style.borderLeftColor=colorByDays(days);
-        task.innerHTML=`
-          <strong>${t}</strong>
-          <div class="meta">
-            ${d?`zuletzt ${d.by}, vor ${days} Tagen`:"noch nie"} ${days>7?"⚠️":""}
+// ⏱️ TIME
+function daysSince(ts) {
+  return Math.floor((Date.now() - ts) / 86400000);
+}
+function color(days, max) {
+  const r = Math.min(days / max, 1);
+  return `rgba(${231*r}, ${204*(1-r)}, ${71*(1-r)}, 0.3)`;
+}
+
+// 📋 TASKS
+const tasks = [
+  {name:"Spülmaschine einräumen",emoji:"🍽️",freq:"daily",cool:1,xp:10},
+  {name:"Spülmaschine ausräumen",emoji:"🥄",freq:"daily",cool:1,xp:10},
+  {name:"Aufräumen",emoji:"🧹",freq:"daily",cool:1,xp:10},
+
+  {name:"Müll rausbringen",emoji:"🗑️",freq:"weekly",cool:7,xp:30},
+  {name:"Wäsche aufhängen",emoji:"👕",freq:"weekly",cool:7,xp:30},
+  {name:"Wäsche abhängen",emoji:"🧺",freq:"weekly",cool:7,xp:30},
+  {name:"Bad putzen",emoji:"🚿",freq:"weekly",cool:7,xp:30},
+
+  {name:"Pfand wegbringen",emoji:"♻️",freq:"monthly",cool:30,xp:80},
+  {name:"Deep Clean",emoji:"🧨",freq:"monthly",cool:30,xp:80}
+];
+
+// ✔️ DONE
+function doneTask(task) {
+  const now = Date.now();
+  db.ref(`history/${task.name}`).set({
+    time: now,
+    user: currentUser
+  });
+  db.ref(`xp/${currentUser}`).transaction(v => (v || 0) + task.xp);
+}
+
+// ↩️ UNDO
+function undoTask(task) {
+  db.ref(`history/${task.name}`).remove();
+  db.ref(`xp/${currentUser}`).transaction(v => (v || 0) - 10);
+}
+
+// 🔁 RENDER
+function render(snapshot) {
+  const data = snapshot.val() || {};
+  const history = data.history || {};
+  const xp = data.xp || {};
+
+  document.getElementById("xpDisplay").innerText =
+    `Level ${levelFromXP(xp[currentUser]||0)} – ${xp[currentUser]||0} XP`;
+
+  const container = document.getElementById("tasks");
+  container.innerHTML = "";
+
+  ["daily","weekly","monthly"].forEach(freq => {
+    container.innerHTML += `<h3>${freq.toUpperCase()}</h3>`;
+    tasks.filter(t=>t.freq===freq).forEach(t=>{
+      const h = history[t.name];
+      const days = h ? daysSince(h.time) : 0;
+      container.innerHTML += `
+        <div class="task" style="background:${color(days,t.cool)}">
+          <div>
+            <strong>${t.emoji} ${t.name}</strong>
+            <small>${h ? `Zuletzt: ${h.user}, ${days} Tage` : "Noch nie erledigt"}</small>
           </div>
-          <div class="buttons">
-            <button class="maria" onclick="mark('${t}','Maria')">Maria</button>
-            <button class="valentin" onclick="mark('${t}','Valentin')">Valentin</button>
+          <div>
+            <button class="done" onclick='doneTask(${JSON.stringify(t)})'>✔</button>
+            <button class="undo" onclick='undoTask(${JSON.stringify(t)})'>↩</button>
           </div>
-        `;
-        div.appendChild(task);
-      });
-      root.appendChild(div);
+        </div>`;
     });
   });
+
+  renderChart(history);
 }
-render();
+
+// 📊 CHART
+function renderChart(history){
+  const counts = {Maria:0, Valentin:0};
+  Object.values(history).forEach(h=>{
+    if(h.user) counts[h.user]++;
+  });
+  if(window.chart) window.chart.destroy();
+  window.chart = new Chart(document.getElementById("chart"),{
+    type:"pie",
+    data:{
+      labels:Object.keys(counts),
+      datasets:[{data:Object.values(counts)}]
+    }
+  });
+}
+
+// 🔌 LISTEN
+db.ref("/").on("value", render);
+
+// 🧭 TABS
+function showTab(id){
+  document.querySelectorAll("section").forEach(s=>s.classList.remove("active"));
+  document.querySelectorAll(".tabs button").forEach(b=>b.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+  event.target.classList.add("active");
+}
 </script>
 
 </body>
